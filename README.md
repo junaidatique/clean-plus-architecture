@@ -1,7 +1,8 @@
-# Boring Architecture (WIP)
+# Clean Plus Architecture
 
 ```
-"Stick to boring architecture for as long as possible, and spend the majority of your time, and resources, building something your customers are willing to pay for." - Kelsey Hightower
+"Stick to boring architecture for as long as possible, and spend the majority of your time, 
+and resources, building something your customers are willing to pay for." - Kelsey Hightower
 ```
 
 The Clean Architecture concept, originally introduced by Robert C. Martin (Uncle Bob) over a decade ago, has seen widespread adoption in languages such as Java and C#. However, its integration is less prevalent among NodeJs and PHP developers in general.
@@ -10,15 +11,15 @@ As a software developer, I have always tried to explore ways to write code that 
 
 In last few years, I have applied Clean Architecture to Laravel and ExpressJs projects along with combining best practices from various proven practices. In this repo, I'll try to explain all these practices on which I have hands on experience and found really promising. 
 
-I've termed this approach "Boring" Architecture because in this repo I make a case that these stable, well-understood, well-adopted and tested tools and technologies are better than shining new technologies which has limited communicaty and adoptation. These methods, tools and technologies, that I am going to recommend, are well tested, have proven scalalblity and come with extensive documentation and community support. 
+I've termed this approach "Clean Plus" Architecture because in this repo I make a case that these stable, well-understood, well-adopted and tested tools and technologies are better than shining new technologies which has limited community and adoption. These methods, tools and technologies, that I am going to recommend, are well tested, have proven scalability and come with extensive documentation and community support. 
 
-The ideas given below are not just about the architecture of the system. Its also about changing the mindset and a tought process to follow best and proven practices to have a successfull project. By following tese practices, we only write production grade code that will go directly to production multiple times a day. 
+The ideas given below are not just about the architecture of the system. Its also about changing the mindset and a taught process to follow best and proven practices to have a successful project. By following these practices, we only write production grade code that will go directly to production multiple times a day. 
 
 ## Problem Statement 
-So first lets discuss why do we even need this boring architecutre. 
+So first lets discuss why do we even need this clean plus architecture. 
 
 ### Scalable
-We need an architecutre which can help us to build large scale application. From large scale application we mean that the architecture support development of a project that will
+We need an architecture which can help us to build large scale application. From large scale application we mean that the architecture support development of a project that will
 - take around a year to build
 - multiple teams will work on this project
 - the developed application will be used for more than a decade. 
@@ -34,7 +35,7 @@ Here this also means that the architecture itself help us to write better test c
 We need an architecture where we can easily maintain over the lifetime of the project. Consider that you need to implement a feature in a two week sprint but now you have to maintain it for the lifetime of the project. So writing code is only 10% of the job whereas maintaining it is the 90% of the job. So we have our core focus on the maintainability of the code. 
 
 ### Screaming architecture
-We need an architecture we don't have to dig into the codebase everytime we want to look into the functionality it provides. We need an architecture through which we can get the idea by just looking at the directory structure. 
+We need an architecture we don't have to dig into the codebase every time we want to look into the functionality it provides. We need an architecture through which we can get the idea by just looking at the directory structure. 
 
 
 ### Modularity
@@ -51,7 +52,7 @@ We need an architecture that facilitates teamwork. Different teams can work on t
 By default, Laravel ships with Model-View-Controller (MVC) architecture. MVC architecture is a widely adopted design pattern in web development. 
 
 ## MVC Components
-This architecture has 3 componenets 
+This architecture has 3 components 
 
 ### Model: Managing Data and Business Logic
 The Model represents the data and business logic of an application. The Model is responsible for interacting with the database and encapsulating data-related operations.
@@ -66,19 +67,19 @@ The Controller acts as an intermediary between the Model and the View. It receiv
 ## MVC Shortcomings
 In MVC architecture we basically combine code based on the technical value it provides. Models are placed with models and controllers are placed with controllers. Now it causes following problems. 
 
-### Maintinacne 
-Think of a large project that has 100s of models and controllers and all of them are placed in single folder. This lead to alot of problems
+### Maintenance  
+Think of a large project that has 100s of models and controllers and all of them are placed in single folder. This lead to a lot of problems
 - Any model can call any other which leads to spaghetti code. For example consider a situation where Model A is calling Model B. Model B calls Model C. Model C calls both Model A and Model B. This creates so much dependency of models on each other. 
-- As a developer, you have to jump into the code everytime you want to get the idea of the functionality provided by each model or controller. This creates problem when you have to change the code in future or a new member of the team joins and start working on the codbase. 
+- As a developer, you have to jump into the code every time you want to get the idea of the functionality provided by each model or controller. This creates problem when you have to change the code in future or a new member of the team joins and start working on the codebase. 
 
 ### Scale
-MVC looks really good in the beginning since it is provided by framework out of the box and allows rapid application development, but as the codebase grows, it start creating scalabiltiy problems. It becomes hard for different teams to work on the codebase at the same time. As the code base grows and new people join, most of the time is spent on refactoring the existing code since the codebase has reached a point where no one can easily understand it. 
+MVC looks really good in the beginning since it is provided by framework out of the box and allows rapid application development, but as the codebase grows, it start creating scalability problems. It becomes hard for different teams to work on the codebase at the same time. As the code base grows and new people join, most of the time is spent on refactoring the existing code since the codebase has reached a point where no one can easily understand it. 
 
 ### Testability
-As we put more and more business logic insdie models, we can write unit tests for each function in models. This way we can test the small business logic that is provided by the system. But it becauses problem to test the complete flow of the business logic provided by that model since most of the time it is distributed among multiple models and classes. 
+As we put more and more business logic inside models, we can write unit tests for each function in models. This way we can test the small business logic that is provided by the system. But it because problem to test the complete flow of the business logic provided by that model since most of the time it is distributed among multiple models and classes. 
 
 # Clean+ Architecture
-By taking into acccount of the above problem statement and MVC shortcomings, we want an architecture that handles the above listed problems efficeiently. We are going to use clean architecture by combining it multiple other techniques so that we can achieve maintainability, scalability and testability. 
+By taking into account of the above problem statement and MVC shortcomings, we want an architecture that handles the above listed problems efficiently. We are going to use clean architecture by combining it multiple other techniques so that we can achieve maintainability, scalability and testability. 
 
 ## Principles
 Through out the rest of our discussion we are going to following some principles. Each principle has it’s own importance and advantages and is used where needed.
@@ -93,11 +94,11 @@ This is the foundational principle for rest of the discussion. We are going to f
 
 ### Separation of Concerns
 
-The architecture separates the application into layers, ensuring a clear distinction between business rules and external components like databases, user interfaces, and frameworks. We will dig more into this later but this basically means that there is clear separation between the technology and buisness domains. 
+The architecture separates the application into layers, ensuring a clear distinction between business rules and external components like databases, user interfaces, and frameworks. We will dig more into this later but this basically means that there is clear separation between the technology and business domains. 
 
 ### Dependency Injection (DI)
 
-This is simple pattern that means an object or function recieves other objects or functions that it requires as opposted to creating them internally. DI aims to separate the concerns of constructing objects and using them, leading to loosely coupled programs. The pattern ensures that an object or function which wants to use a given service should not have to know how to construct those services. Instead, the receiving 'client' (object or function) is provided with its dependencies by external code (an 'injector'), which it is not aware of. 
+This is simple pattern that means an object or function receives other objects or functions that it requires as opposed to creating them internally. DI aims to separate the concerns of constructing objects and using them, leading to loosely coupled programs. The pattern ensures that an object or function which wants to use a given service should not have to know how to construct those services. Instead, the receiving 'client' (object or function) is provided with its dependencies by external code (an 'injector'), which it is not aware of. 
 
 ### Domain Driven Design (DDD)
 
@@ -105,7 +106,7 @@ DDD is a software design approach. This basically means that we are going to mod
 
 ### Ports and Adapters (Hexagonal) architecture
 
-Ports and adapters is another architecture pattern that we are going to use in this. This is also called hexagonal architecture. We are not going into detail here but we are only going do disscuss about ports and adapters. 
+Ports and adapters is another architecture pattern that we are going to use in this. This is also called hexagonal architecture. We are not going into detail here but we are only going do discuss about ports and adapters. 
 
 Application core uses dedicated interfaces called “ports” to communicate with the outside world. They allow the entry or exiting of data to and from the application.
 
@@ -118,7 +119,7 @@ Using this port/adapter design, with our application in the centre of the system
 ### Event Driven Architecture
 
 There are two aspects of using event driven architecture in this architecture. 
-First one is from DDD which states that a domain event is fully fledged part of the domain model, a represenation of something that happened in the domain. we can say that domain events are related to chagnes in the domain models which we care about. 
+First one is from DDD which states that a domain event is fully fledged part of the domain model, a representation of something that happened in the domain. we can say that domain events are related to changes in the domain models which we care about. 
 
 The other one is from technology where we use events to trigger and communicate between different services to have decoupled services. 
 
@@ -127,7 +128,7 @@ The other one is from technology where we use events to trigger and communicate 
 So from now on we’ll keep in mind all the principles that we have discussed previously. 
 
 ## Entities
-First of all let’s discuss about the Entities. The Entties conecept is present in both clean architecture and DDD. 
+First of all let’s discuss about the Entities. The Entities concept is present in both clean architecture and DDD. 
 
 In clean architecture entities are placed in the centre of the architecture. According to clean architecture entities are the business objects of the application. They encapsulate the most general and high-level rules. They are the least likely to change when something external changes. For example, you would not expect these objects to be affected by a change to page navigation, or security.
 
@@ -135,7 +136,7 @@ In order define entities we use DDD concepts. In DDD, an ENTITY is anything that
 
 We start our application design by first identifying the entities within our system and this is done by having discussion with the domain experts. So let’s say we have identified some of our entities and now we want to map it to laravel. Again we are going to religiously follow single responsibility principle. 
 
-In Laravel, Entities from clean architecture and DDD can be represented by eloquent models. Although in clean architecture, the use of ORM is discuouraged but for the sake of simplicity we are going to use eloquent models. Laravel models provides a lot of functionality in its eloquent model classes, which means that they not only represent the data in a data store, they also allow you to build queries, load and save data, have a built-in event system, and more. Which according to our discussion is too much responsibility and we need to break it into different parts based on the responsibility.
+In Laravel, Entities from clean architecture and DDD can be represented by eloquent models. Although in clean architecture, the use of ORM is discouraged but for the sake of simplicity we are going to use eloquent models. Laravel models provides a lot of functionality in its eloquent model classes, which means that they not only represent the data in a data store, they also allow you to build queries, load and save data, have a built-in event system, and more. Which according to our discussion is too much responsibility and we need to break it into different parts based on the responsibility.
 
 
 Keep in mind that models is the place where we put business logic. In the discussion about MVC, we said that the model should have all the business logic. This may be true for a small application but think about putting all the business logic inside model. It will grow so big that it will be really hard to manage it.
@@ -149,7 +150,7 @@ We are going to divide Laravel models and extract following functionality out of
 
 Now we have complete with the breakdown of our models. This works as entities are at the centre of our system. All the rest of the system depends on this. In the very centre, depending on nothing outside it, which contains the business objects that represent something in the domain.
 
-The model classes are left represent relations, accessors and mutators, represent data from database and handle persistence. By dividing these model classes into multiple other classes we also tried to achieve screaming architecture in such a way that by just looking into the directory strcutre we can review which models provide events, overs or casts. By following this convention, practicing over different projects and properly documenting it would help in maintaining the project in long time. 
+The model classes are left represent relations, accessors and mutators, represent data from database and handle persistence. By dividing these model classes into multiple other classes we also tried to achieve screaming architecture in such a way that by just looking into the directory structure we can review which models provide events, overs or casts. By following this convention, practicing over different projects and properly documenting it would help in maintaining the project in long time. 
 
 <p align="center">
   <img src="images/models.png">
@@ -172,7 +173,7 @@ Each Task is responsible for a small part of the logic, and it usually has a sin
 
 The benefit of using tasks is it helps creating single responsibility classes while reusing a piece of code, helps to easily create independently testable classes, create a boundary around entities. 
 
-The name of the tasks should clearly tell what a task is going to do. Also while using with Laravel, its good practice to properly define datatypes of all the parameters and return type of the task. 
+The name of the tasks should clearly tell what a task is going to do. Also while using with Laravel, its good practice to properly define datatype of all the parameters and return type of the task. 
 
 The task must only perform have one responsibility means it must not call another task. It should only interact with entities.
 
@@ -206,7 +207,7 @@ Every Action should have only a single function named run().
 
 Actions are responsible for handling all expected Exceptions.
 
-This also helps us in writing tests. It is now upto the development team to write tests for each tasks or write test of each action but there must be a test case for each action. 
+This also helps us in writing tests. It is now up to the development team to write tests for each tasks or write test of each action but there must be a test case for each action. 
 
 <p align="center">
   <img src="images/actions.png">
@@ -311,6 +312,6 @@ The goal, as always, is to have a codebase that is loosely coupled and high cohe
 So how we can take benefit from this. Start creating your application by following this guide. Try to create domains that are loosely coupled with each other. Within domains we have all the use cases that are divided between actions and services. Now think of this it is very easy to add a new domain, it’s use cases. This will h
 
 <p align="center">
-  <img src="images/dependecy-go-inward.png">
+  <img src="images/dependency-go-inward.png">
   <br/>
 </p>
