@@ -1,0 +1,236 @@
+clean_plus:
+  version: "1.0"
+  intent:
+    - "Framework-agnostic modular monolith architecture rules."
+    - "Designed for LLM code generation and automated validation."
+
+  profiles:
+    framework_agnostic_src:
+      description: "Framework-agnostic example layout under src/."
+      roots:
+        module_root: "src/modules"
+        shared_contracts_root: "src/shared/contracts"
+        framework_root: "src/framework"
+      tooling:
+        deptrac_config: "deptrac.yaml"
+
+    laravel_app_domains:
+      description: "Laravel example layout using app/Domains as the bounded-context root."
+      roots:
+        module_root: "app/Domains"
+        shared_contracts_root: "app/Domains/shared/contracts"
+        framework_root:
+          - "app/Providers"
+          - "app/Domains/*/framework"
+      tooling:
+        deptrac_config: "deptrac.laravel.yaml"
+        forbidden_vendor_namespaces:
+          - "Illuminate\\"
+          - "Laravel\\"
+
+  vocabulary:
+    module:
+      meaning: "Bounded context root. A module contains multiple layers."
+    published_api:
+      meaning: "The only cross-module import surface."
+      location:
+        - "<module>/contracts/**"
+        - "<shared>/contracts/**"
+    domain_layer:
+      meaning: "Pure business rules (entities, value objects, domain services)."
+    application_layer:
+      meaning: "Use-cases (Actions), reusable steps (Tasks), ports, DTOs."
+    delivery_layer:
+      meaning: "Primary adapters (HTTP/events/CLI): map input -> call input port -> map output."
+    adapters_layer:
+      meaning: "Secondary adapters (DB, message bus, external clients): implement output ports."
+    framework_layer:
+      meaning: "Composition root / wiring only."
+
+  boundaries:
+    layers:
+      shared_contracts:
+        purpose: "Cross-cutting stable contracts only (Result/AppError/event envelope/observability ports)."
+      module_contracts:
+        purpose: "Module published API (integration events; optional published read-only query contracts)."
+        rules:
+          must:
+            - "Must not depend on module domain/application/delivery/adapters."
+            - "Must depend only on shared_contracts and primitives."
+      domain:
+        purpose: "Pure domain model."
+        rules:
+          must:
+            - "No IO (no DB/HTTP/bus/filesystem)."
+            - "No framework imports."
+            - "No logging."
+      application:
+        purpose: "Core orchestration and contracts owned by the core."
+        sublayers:
+          ports_in:
+            purpose: "Internal use-case contracts called by this module's delivery."
+          ports_out:
+            purpose: "External dependency contracts needed by the core."
+          dto:
+            purpose: "Input/output DTOs for internal use-cases."
+          actions:
+            purpose: "Implement input ports; orchestrate tasks; return Result."
+          tasks:
+            purpose: "Single-purpose steps; return Result; no task nesting."
+        rules:
+          must:
+            - "Must be framework-agnostic."
+            - "Must return Result from Actions and Tasks."
+            - "Tasks must not throw; unexpected exceptions convert to AppError(UNEXPECTED)."
+            - "Tasks must not call Tasks; Actions compose Tasks."
+            - "Actions must not call Actions."
+          logging:
+            required: true
+            method: "run"
+            format: "[ClassName::run]"
+            exceptions:
+              - "domain"
+      delivery:
+        purpose: "Primary adapters; translate protocol -> input port -> protocol."
+        rules:
+          must:
+            - "Must depend on input ports (interfaces) not concrete Actions."
+            - "Must not contain business logic."
+            - "Must not import domain entities or adapters."
+      adapters:
+        purpose: "Implement output ports using specific technology."
+        rules:
+          must:
+            - "Must implement application ports_out."
+      framework:
+        purpose: "Wiring only (composition root)."
+        rules:
+          must:
+            - "May depend on anything, but should contain no business logic."
+
+  dependency_rules:
+    allowed_edges:
+      domain: []
+      shared_contracts:
+        - "shared_contracts"
+      module_contracts:
+        - "shared_contracts"
+      application_ports_in:
+        - "application_dto"
+        - "shared_contracts"
+      application_dto:
+        - "shared_contracts"
+      application_ports_out:
+        - "domain"
+        - "shared_contracts"
+      application_tasks:
+        - "domain"
+        - "application_ports_out"
+        - "application_dto"
+        - "module_contracts"
+        - "shared_contracts"
+      application_actions:
+        - "domain"
+        - "application_ports_in"
+        - "application_ports_out"
+        - "application_dto"
+        - "application_tasks"
+        - "module_contracts"
+        - "shared_contracts"
+      delivery:
+        - "application_ports_in"
+        - "application_dto"
+        - "module_contracts"
+        - "shared_contracts"
+      adapters:
+        - "application_ports_out"
+        - "domain"
+        - "module_contracts"
+        - "shared_contracts"
+        - "framework"
+      framework:
+        - "*"
+
+    inter_module:
+      default_policy:
+        - "Treat other modules like external systems."
+        - "Projection-first for GET queries."
+        - "Async-by-default for cross-module commands (POST)."
+      must:
+        - "A module must not import another module's domain/application/delivery/adapters."
+        - "Cross-module imports are allowed only from: <other_module>/contracts/** and <shared>/contracts/**."
+        - "No cross-module database access (no joins, no direct repo calls across modules)."
+        - "No shared domain entities across modules (exchange IDs/DTOs/event payloads only)."
+
+      synchronous_lookup_exception:
+        allowed_for: "Small, read-only, low-risk lookups only."
+        must:
+          - "Use the caller module's output port + ACL adapter."
+          - "Call the callee module only via callee contracts (contracts/ports/in + contracts/dto)."
+
+  contracts:
+    result:
+      shape:
+        ok: "{ ok: true, value: T }"
+        err: "{ ok: false, error: AppError }"
+    app_error:
+      required_fields:
+        - "code"
+        - "message"
+      optional_fields:
+        - "details"
+    http_mapping:
+      guidance_only: true
+      by_code:
+        VALIDATION_FAILED: 400
+        FORBIDDEN: 403
+        NOT_FOUND: 404
+        CONFLICT: 409
+        UNEXPECTED: 500
+
+  integration_events:
+    must:
+      - "Outbox: record event in same transaction as state change; publish asynchronously."
+      - "Inbox/idempotency: consumers must deduplicate (store processed eventId/idempotency key)."
+      - "Assume at-least-once delivery; handlers must be idempotent."
+    envelope:
+      required_fields:
+        - "eventId"
+        - "occurredAt"
+        - "producer"
+        - "schemaVersion"
+      optional_fields:
+        - "correlationId"
+    evolution:
+      must:
+        - "Changes must be additive by default."
+        - "Renames/removals require a new schemaVersion."
+
+  testing_contract:
+    must_have: true
+    categories:
+      domain_unit:
+        scope: "domain/**"
+        rules:
+          - "No IO, no framework, no mocks required."
+      application_unitish:
+        scope: "application/**"
+        rules:
+          - "Use fakes for ports_out."
+          - "Assert Result and AppError.code."
+      adapters_integration:
+        scope: "adapters/**"
+        rules:
+          - "Test adapters against real dependencies (DB/bus) or controlled stubs."
+      contract_schema:
+        scope:
+          - "modules/*/contracts/events/**"
+          - "shared/contracts/** (event envelope primitives)"
+        rules:
+          - "Schema snapshots and backward-compatibility checks."
+
+  enforcement:
+    must:
+      - "Layering checks must run in CI (e.g., Deptrac)."
+      - "Cross-module import guard must run in CI (forbid modules/<A> importing modules/<B> except contracts)."
+      - "LLM generation/validation must follow this rulebook; deviations are errors."

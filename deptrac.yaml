@@ -1,0 +1,150 @@
+deptrac:
+  # Clean Plus (PHP) Architecture Boundaries
+  # --------------------------------------
+  # This file translates the README architecture rules into enforceable dependency constraints.
+  #
+  # Core idea:
+  # - "delivery/http" depends on input ports + DTOs + shared contracts (never Actions).
+  # - "domain" is pure (no dependencies on application/delivery/adapters/framework).
+  # - "application" (actions/tasks/ports/dto) depends inward on domain + ports/contracts.
+  # - "adapters" implement output ports and may depend on framework.
+  # - "framework/composition-root" may depend on everything (wiring only).
+
+  paths:
+    - ./src
+
+  exclude_files:
+    - "#.*\\/vendor\\/.*#"
+    - "#.*\\/tests\\/.*#"
+
+  layers:
+    # Shared kernel contracts only (Result/AppError/event envelope/observability ports).
+    - name: SharedContracts
+      collectors:
+        - type: directory
+          value: src/shared/contracts/.*
+
+    # Per-module published contracts (integration events, optional published query ports/DTOs).
+    - name: ModuleContracts
+      collectors:
+        - type: directory
+          value: src/modules/.*/contracts/.*
+
+    # Framework tooling and composition root.
+    - name: Framework
+      collectors:
+        - type: directory
+          value: src/framework/.*
+
+    # Pure domain model (no IO, no logging, no framework).
+    - name: ModuleDomain
+      collectors:
+        - type: directory
+          value: src/modules/.*/domain/.*
+
+    # Application layer (explicit ports + DTOs + implementations).
+    - name: ApplicationPortsIn
+      collectors:
+        - type: directory
+          value: src/modules/.*/application/ports/in/.*
+
+    - name: ApplicationPortsOut
+      collectors:
+        - type: directory
+          value: src/modules/.*/application/ports/out/.*
+
+    - name: ApplicationDTO
+      collectors:
+        - type: directory
+          value: src/modules/.*/application/dto/.*
+
+    - name: ApplicationActions
+      collectors:
+        - type: directory
+          value: src/modules/.*/application/actions/.*
+
+    - name: ApplicationTasks
+      collectors:
+        - type: directory
+          value: src/modules/.*/application/tasks/.*
+
+    # Primary adapters (HTTP/events/CLI). Delivery must never depend on concrete actions/tasks/domain directly.
+    - name: Delivery
+      collectors:
+        - type: directory
+          value: src/modules/.*/delivery/.*
+
+    # Secondary adapters (DB, message bus, external clients).
+    - name: Adapters
+      collectors:
+        - type: directory
+          value: src/modules/.*/adapters/.*
+
+  ruleset:
+    # Domain is pure: no outgoing dependencies (except itself).
+    ModuleDomain: []
+
+    # Module contracts are stable published APIs: depend only on shared contracts.
+    ModuleContracts:
+      - SharedContracts
+
+    # Input ports are stable contracts: depend only on DTOs + shared contracts.
+    ApplicationPortsIn:
+      - ApplicationDTO
+      - SharedContracts
+
+    # DTOs should be stable boundary types; allow only shared contracts.
+    ApplicationDTO:
+      - SharedContracts
+
+    # Output ports are interfaces owned by the core; they may depend on domain types and shared contracts.
+    ApplicationPortsOut:
+      - ModuleDomain
+      - SharedContracts
+
+    # Tasks: single-responsibility steps; depend on domain + output ports + shared contracts + DTOs.
+    ApplicationTasks:
+      - ModuleDomain
+      - ApplicationPortsOut
+      - ApplicationDTO
+      - ModuleContracts
+      - SharedContracts
+
+    # Actions: implement input ports and orchestrate tasks; depend on domain + tasks + ports + DTOs + shared contracts.
+    ApplicationActions:
+      - ModuleDomain
+      - ApplicationPortsIn
+      - ApplicationPortsOut
+      - ApplicationDTO
+      - ApplicationTasks
+      - ModuleContracts
+      - SharedContracts
+
+    # Delivery (HTTP): depends only on input ports + DTOs + shared contracts.
+    # MUST NOT depend on concrete Actions/Tasks/Domain/Adapters.
+    Delivery:
+      - ApplicationPortsIn
+      - ApplicationDTO
+      - ModuleContracts
+      - SharedContracts
+
+    # Adapters: implement output ports; may use framework tooling. They can also depend on domain types for mapping.
+    Adapters:
+      - ApplicationPortsOut
+      - ModuleDomain
+      - ModuleContracts
+      - SharedContracts
+      - Framework
+
+    # Composition root/framework may wire everything.
+    Framework:
+      - SharedContracts
+      - ModuleContracts
+      - ModuleDomain
+      - ApplicationPortsIn
+      - ApplicationPortsOut
+      - ApplicationDTO
+      - ApplicationActions
+      - ApplicationTasks
+      - Delivery
+      - Adapters

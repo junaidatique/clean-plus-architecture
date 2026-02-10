@@ -1,0 +1,165 @@
+deptrac:
+  # Clean Plus (Laravel) Architecture Boundaries
+  # --------------------------------------------
+  # This file is a template for Laravel projects using:
+  # - app/Domains/<Module>/{domain,application,delivery/http,adapters,framework}
+  # - app/Domains/shared/contracts/*
+  #
+  # Goal:
+  # - Keep Domain + Application framework-agnostic (no Illuminate/Laravel dependencies).
+  # - Allow Laravel only in the outermost layers (Delivery/Adapters/Framework wiring).
+
+  # Recommended: keep this strict on internal boundaries, but don't noise on arbitrary vendor libraries.
+  report_uncovered: false
+
+  paths:
+    - ./app/Domains
+    - ./app/Providers
+
+  exclude_files:
+    - "#.*\\/vendor\\/.*#"
+    - "#.*\\/tests\\/.*#"
+
+  layers:
+    # Laravel/framework vendor namespaces. If core depends on these, we want Deptrac to catch it.
+    - name: LaravelFramework
+      collectors:
+        - type: className
+          value: "^Illuminate\\\\.*"
+        - type: className
+          value: "^Laravel\\\\.*"
+
+    # Shared kernel contracts only (Result/AppError/event envelope/etc).
+    - name: SharedContracts
+      collectors:
+        - type: directory
+          value: app/Domains/shared/contracts/.*
+
+    # Per-module published contracts (integration events, optional published query ports/DTOs).
+    - name: ModuleContracts
+      collectors:
+        - type: directory
+          value: app/Domains/.*/contracts/.*
+
+    # Composition root + wiring (Laravel providers + module framework folder).
+    - name: Framework
+      collectors:
+        - type: directory
+          value: app/Providers/.*
+        - type: directory
+          value: app/Domains/.*/framework/.*
+
+    # Pure domain model (no IO, no Laravel).
+    - name: ModuleDomain
+      collectors:
+        - type: directory
+          value: app/Domains/.*/domain/.*
+
+    # Application layer contracts + implementations.
+    - name: ApplicationPortsIn
+      collectors:
+        - type: directory
+          value: app/Domains/.*/application/ports/in/.*
+
+    - name: ApplicationPortsOut
+      collectors:
+        - type: directory
+          value: app/Domains/.*/application/ports/out/.*
+
+    - name: ApplicationDTO
+      collectors:
+        - type: directory
+          value: app/Domains/.*/application/dto/.*
+
+    - name: ApplicationActions
+      collectors:
+        - type: directory
+          value: app/Domains/.*/application/actions/.*
+
+    - name: ApplicationTasks
+      collectors:
+        - type: directory
+          value: app/Domains/.*/application/tasks/.*
+
+    # Primary adapters (HTTP/events/CLI) inside each module.
+    - name: Delivery
+      collectors:
+        - type: directory
+          value: app/Domains/.*/delivery/.*
+
+    # Secondary adapters (DB/external APIs/etc) inside each module.
+    - name: Adapters
+      collectors:
+        - type: directory
+          value: app/Domains/.*/adapters/.*
+
+  ruleset:
+    # Domain is pure: no outgoing deps (except itself).
+    ModuleDomain: []
+
+    # Module contracts are stable published APIs: depend only on shared contracts.
+    ModuleContracts:
+      - SharedContracts
+
+    # Input ports are stable contracts: depend only on DTOs + shared contracts.
+    ApplicationPortsIn:
+      - ApplicationDTO
+      - SharedContracts
+
+    # DTOs are stable boundary types; allow only shared contracts.
+    ApplicationDTO:
+      - SharedContracts
+
+    # Output ports are owned by the core; they may depend on domain types and shared contracts.
+    ApplicationPortsOut:
+      - ModuleDomain
+      - SharedContracts
+
+    # Tasks: single-responsibility steps; framework-agnostic.
+    ApplicationTasks:
+      - ModuleDomain
+      - ApplicationPortsOut
+      - ApplicationDTO
+      - ModuleContracts
+      - SharedContracts
+
+    # Actions: implement input ports and orchestrate tasks; framework-agnostic.
+    ApplicationActions:
+      - ModuleDomain
+      - ApplicationPortsIn
+      - ApplicationPortsOut
+      - ApplicationDTO
+      - ApplicationTasks
+      - ModuleContracts
+      - SharedContracts
+
+    # Delivery (HTTP): may depend on Laravel for requests/responses, but never on concrete actions/tasks/domain/adapters.
+    Delivery:
+      - LaravelFramework
+      - ApplicationPortsIn
+      - ApplicationDTO
+      - ModuleContracts
+      - SharedContracts
+
+    # Adapters: implement output ports; may depend on Laravel and framework tooling.
+    Adapters:
+      - LaravelFramework
+      - ApplicationPortsOut
+      - ModuleDomain
+      - ModuleContracts
+      - SharedContracts
+      - Framework
+
+    # Wiring may depend on everything.
+    Framework:
+      - LaravelFramework
+      - SharedContracts
+      - ModuleContracts
+      - ModuleDomain
+      - ApplicationPortsIn
+      - ApplicationPortsOut
+      - ApplicationDTO
+      - ApplicationActions
+      - ApplicationTasks
+      - Delivery
+      - Adapters
