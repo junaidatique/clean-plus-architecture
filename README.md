@@ -384,7 +384,7 @@ src/
 
 ```mermaid
 flowchart TB
-  DEL["delivery/http"] --> INP["application/ports/in"]
+  DEL["delivery"] --> INP["application/ports/in"]
   DEL --> DTO["application/dto"]
   APP["application"] --> DOM["domain"]
   APP --> OUTP["application/ports/out"]
@@ -417,10 +417,15 @@ The domain model is where you keep the business rules that should survive any te
 2. Write down “things that matter and live long” (`Order`, `Invoice`, `Account`, ...).  
 3. Give each entity a stable identity and a clear purpose.  
 
-<p align="center">
-  <img src="images/models.png">
-  <br/>
-</p>
+```mermaid
+flowchart TB
+  subgraph DM["Domain Model (Pure)"]
+    E["Entities"] --> INV["Invariants"]
+    VO["Value Objects"] --> INV
+    DS["Domain Services"] --> INV
+    DE["Domain Events"] --> E
+  end
+```
 
 ---
 
@@ -496,10 +501,14 @@ A **Task** is a tiny class (or function) that does **one** piece of work and exp
 5. **SHOULD depend only on ports + domain code.** No framework types.  
 6. **MUST log at the top of `run()`** in `[ClassName::run]` format (except domain layer).
 
-<p align="center">
-  <img src="images/tasks.png">
-  <br/>
-</p>
+```mermaid
+flowchart LR
+  A["Action.run(inputDTO)"] --> T["Task.run(...)"]
+  T --> D["Domain Model"]
+  T --> OP["Output Port (Interface)"]
+  AD["Adapter (Implementation)"] --> OP
+  T --> R["Result<T, AppError>"] --> A
+```
 
 ---
 
@@ -519,10 +528,15 @@ HTTP → Controller → Input Port → Action.run() → Tasks → Domain → Out
 5. **MUST log at the top of `run()`** in `[ClassName::run]` format (except domain layer).  
 6. **MUST return `Result` and never throw expected failures.**
 
-<p align="center">
-  <img src="images/actions.png">
-  <br/>
-</p>
+```mermaid
+flowchart LR
+  INP["Input Port (Interface)"] --> ACT["Action.run(inputDTO)"]
+  ACT --> T1["Task 1"]
+  ACT --> T2["Task 2"]
+  T1 --> OP1["Output Port 1"] --> AD1["Adapter 1"]
+  T2 --> OP2["Output Port 2"] --> AD2["Adapter 2"]
+  ACT --> RES["Result<OutputDTO, AppError>"]
+```
 
 ---
 
@@ -549,10 +563,32 @@ The delivery layer translates HTTP into an input-port call and translates the ou
 
 > Note: Some MVC literature calls controllers “application layer”. In Clean Plus we call this the **delivery layer** to avoid confusion with Clean Architecture’s application/use-case layer.
 
-<p align="center">
-  <img src="images/application-layer.png">
-  <br/>
-</p>
+```mermaid
+flowchart TB
+  subgraph Delivery["Delivery (Primary Adapters)"]
+    CTR["Controller/Handler"] --> VAL["Validator/Parser"] --> INP["Input Port (Interface)"]
+    PRES["Presenter"]
+  end
+
+  subgraph Application["Application (Use-Cases)"]
+    ACT["Action.run(...)"] --> TASKS["Tasks"]
+    DTO["DTOs"]
+    OUTP["Output Ports (Interfaces)"]
+  end
+
+  subgraph Domain["Domain (Pure)"]
+    DM["Entities/Value Objects/Services"]
+  end
+
+  subgraph Adapters["Adapters (Secondary)"]
+    AD["Technology Implementations"]
+  end
+
+  INP --> ACT
+  TASKS --> DM
+  ACT --> OUTP --> AD
+  ACT --> RES["Result<OutputDTO, AppError>"] --> PRES
+```
 
 ---
 
@@ -572,10 +608,30 @@ The composition root is where you connect the graph:
 * Action depends on Tasks + output ports  
 * Output ports are implemented by Adapters
 
-<p align="center">
-  <img src="images/framework.png">
-  <br/>
-</p>
+```mermaid
+flowchart LR
+  subgraph Framework["Framework / Composition Root"]
+    DI["DI Bindings"]
+  end
+
+  subgraph Delivery["Delivery"]
+    CTR["Controller/Handler"]
+  end
+
+  subgraph Core["Application (Core)"]
+    INP["Input Port (Interface)"]
+    ACT["Action (Implementation)"]
+    OUTP["Output Port (Interface)"]
+  end
+
+  subgraph Adapters["Adapters"]
+    ADA["Adapter (Implementation)"]
+  end
+
+  CTR --> INP --> ACT --> OUTP --> ADA
+  DI -. "wires" .-> ACT
+  DI -. "wires" .-> ADA
+```
 
 ---
 
@@ -715,10 +771,29 @@ In a Laravel repo, prefer one command that runs all architecture checks together
 
 Recommended: wire both into a Composer script (e.g., `composer arch:check`) so devs and CI run the same entrypoint.
 
-<p align="center">
-  <img src="images/domains.png">
-  <br/>
-</p>
+```mermaid
+flowchart LR
+  SC["shared/contracts (Stable Cross-Cutting)"]
+
+  subgraph A["Module A"]
+    ACORE["domain + application + delivery + adapters"]
+    APUB["contracts (Published API)"]
+  end
+
+  subgraph B["Module B"]
+    BCORE["domain + application + delivery + adapters"]
+    BPUB["contracts (Published API)"]
+  end
+
+  ACORE --> SC
+  BCORE --> SC
+
+  ACORE --> BPUB
+  BCORE --> APUB
+
+  ACORE -. "forbidden import" .-> BCORE
+  BCORE -. "forbidden import" .-> ACORE
+```
 
 ---
 
@@ -738,10 +813,20 @@ Prefer putting module-owned contracts in `src/modules/<module>/contracts/` and k
 * Domain entities  
 * “Utility” functions that leak logic across modules
 
-<p align="center">
-  <img src="images/shared-domains.png">
-  <br/>
-</p>
+```mermaid
+flowchart TB
+  subgraph Shared["shared/contracts (Small + Stable)"]
+    R["Result + AppError"]
+    ENV["Event Envelope Primitives"]
+    OBS["Observability Ports"]
+  end
+
+  subgraph NotAllowed["Not Allowed in shared/contracts"]
+    BR["Business Rules"]
+    ENT["Domain Entities"]
+    UTIL["Cross-Module Utility Logic"]
+  end
+```
 
 ---
 
@@ -754,10 +839,24 @@ Ports are owned by the core. Adapters implement ports for a specific technology.
 * **Primary adapters** (HTTP controllers) call input ports.  
 * **Secondary adapters** (repositories, bus publishers) implement output ports.
 
-<p align="center">
-  <img src="images/ports-and-adapters.png">
-  <br/>
-</p>
+```mermaid
+flowchart LR
+  subgraph Primary["Primary Adapter"]
+    HTTP["HTTP Controller/Handler"]
+  end
+
+  subgraph Core["Core"]
+    INP["Input Port"]
+    ACT["Action"]
+    OUTP["Output Port"]
+  end
+
+  subgraph Secondary["Secondary Adapter"]
+    AD["DB/Bus/HTTP Client Adapter"]
+  end
+
+  HTTP --> INP --> ACT --> OUTP --> AD
+```
 
 ---
 
@@ -879,7 +978,15 @@ Clean Plus is intentionally strict. The goal is not ceremony; the goal is **pred
 * predictable structure for tests  
 * predictable structure for LLM-based generation and validation  
 
-<p align="center">
-  <img src="images/dependency-go-inward.png">
-  <br/>
-</p>
+```mermaid
+flowchart TB
+  DEL["delivery"] --> INP["application/ports/in"]
+  DEL --> DTO["application/dto"]
+  APP["application"] --> DOM["domain"]
+  APP --> OUTP["application/ports/out"]
+  ADP["adapters"] --> OUTP
+  ADP --> FW["framework"]
+  CR["framework/composition-root"] --> DEL
+  CR --> APP
+  CR --> ADP
+```
