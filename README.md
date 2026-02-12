@@ -16,6 +16,28 @@ I put all those pieces together and call the result **Clean Plus**.
 
 ---
 
+## Agent Skill (Install & Use)
+
+This repo ships a Codex skill at `skills/clean-plus-architecture/SKILL.md` to help LLMs generate and validate code against the Clean Plus rulebook.
+
+### Install (Codex)
+
+Copy the skill folder into your Codex skills directory (default: `~/.codex/skills`):
+
+```bash
+mkdir -p ~/.codex/skills
+cp -R skills/clean-plus-architecture ~/.codex/skills/clean-plus-architecture
+```
+
+### Use
+
+Mention `$clean-plus-architecture` in your prompt so Codex loads the skill and follows the rulebook and checks:
+
+* `$clean-plus-architecture review this module for boundary violations`
+* `$clean-plus-architecture implement a new use-case without cross-module coupling`
+
+---
+
 ## What makes it “Plus”?
 
 * **Same clear layers** - domain code is never mixed with framework code.  
