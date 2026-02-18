@@ -65,6 +65,12 @@ If multiple profiles match, require the user to pick one.
 - Actions/Tasks return `Result<T, AppError>`.
 - Tasks do not throw; unexpected exceptions map to `AppError(UNEXPECTED)`.
 
+### 3.5) Keep routing module-owned
+
+- Define module endpoints in `delivery/http/routes/**` inside the module.
+- Register/mount module routes from the **composition root** via an **explicit list** (no auto-discovery).
+- In Laravel, `routes/*.php` must not define module endpoints (only minimal glue, or unused).
+
 ### 4) Enforce before claiming “done”
 
 Run both checks (and fix violations):

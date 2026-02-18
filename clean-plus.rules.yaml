@@ -206,6 +206,21 @@ clean_plus:
         - "Changes must be additive by default."
         - "Renames/removals require a new schemaVersion."
 
+  routing:
+    must:
+      - "Route definitions must be module-owned (delivery/http/routes)."
+      - "The composition root must register/mount module routes via an explicit list (no auto-discovery)."
+    locations:
+      framework_agnostic_src:
+        route_definitions_glob: "src/modules/*/delivery/http/routes/**"
+        registration_location: "src/framework/composition-root/**"
+      laravel_app_domains:
+        route_definitions_glob: "app/Domains/*/delivery/http/routes/*.php"
+        registration_location: "app/Providers/RouteServiceProvider.php"
+        forbidden_route_definition_glob:
+          - "routes/*.php"
+        list_style: "explicit"
+
   testing_contract:
     must_have: true
     categories:

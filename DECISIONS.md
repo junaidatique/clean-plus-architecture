@@ -28,6 +28,7 @@ This file captures the agreed architectural decisions for this repo’s framewor
 - `modules/<Module>/delivery/`
   - Primary adapters (HTTP/events/CLI): translate input → call input port → translate output.
   - Must depend on input ports + DTOs + shared contracts; must not depend on concrete actions/tasks/domain.
+  - Routing rule: module endpoints live in `delivery/http/routes/**` and are mounted from the composition root via an explicit list.
 - `modules/<Module>/adapters/`
   - Secondary adapters (DB, external APIs, message bus): implement output ports.
   - May depend on framework/infrastructure libraries.

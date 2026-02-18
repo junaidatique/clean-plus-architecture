@@ -573,6 +573,28 @@ The delivery layer translates HTTP into an input-port call and translates the ou
 4. Presenters **MUST map** `Result` → HTTP status + body.  
 5. Delivery **MUST NOT import** domain entities or adapters.
 
+### Routing (MUST)
+
+Routes are part of the **delivery boundary**. Each module should own its own endpoints.
+
+1. Route definitions for a module **MUST** live inside that module:  
+   `modules/<module>/delivery/http/routes/**`
+2. The **composition root** (framework wiring) **MUST** register/mount module routes via an **explicit list** (no auto-discovery).
+3. Framework-level route files (e.g., Laravel’s `routes/*.php`) **MUST NOT** define module endpoints. They may be unused, or contain only minimal glue that mounts module routes.
+
+#### Laravel example (explicit list)
+
+Register module route files from the composition root (e.g., `app/Providers/RouteServiceProvider.php`) using an explicit list:
+
+```php
+// app/Providers/RouteServiceProvider.php
+// ...
+Route::middleware("api")->group(function () {
+    require base_path("app/Domains/User/delivery/http/routes/api.php");
+    require base_path("app/Domains/Billing/delivery/http/routes/api.php");
+});
+```
+
 ### Recommended HTTP mapping (example)
 
 | `AppError.code` | Suggested HTTP Status |
@@ -777,7 +799,7 @@ Because inter-module coupling is the highest-entropy failure mode, this **MUST**
 
 This repo includes a framework-agnostic reference guard script:
 
-* `clean-plus-guard.rb` – scans PHP `use ...;` and JS/TS `import/require()` statements and fails if a module imports another module outside `contracts/**`.
+* `clean-plus-guard.rb` – enforces `clean-plus.rules.yaml` by scanning imports (PHP `use ...;`, JS/TS `import/require()`) and by checking routing rules (e.g., no endpoints in Laravel `routes/*.php`, no route auto-discovery in the composition root).
 
 Run it (examples):
 

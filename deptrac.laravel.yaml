@@ -15,6 +15,7 @@ deptrac:
   paths:
     - ./app/Domains
     - ./app/Providers
+    - ./routes
 
   exclude_files:
     - "#.*\\/vendor\\/.*#"
@@ -48,6 +49,12 @@ deptrac:
           value: app/Providers/.*
         - type: directory
           value: app/Domains/.*/framework/.*
+
+    # Root Laravel routes files. In Clean Plus these must not contain module endpoints.
+    - name: LaravelRoutes
+      collectors:
+        - type: directory
+          value: routes/.*
 
     # Pure domain model (no IO, no Laravel).
     - name: ModuleDomain
@@ -163,3 +170,8 @@ deptrac:
       - ApplicationTasks
       - Delivery
       - Adapters
+
+    # Root routes should not depend on module internals (no controllers/actions/tasks/entities).
+    # They may only reference Laravel routing primitives and/or include module route files.
+    LaravelRoutes:
+      - LaravelFramework

@@ -33,6 +33,7 @@ class CleanPlusGuard
     # Validate module roots first (contracts purity is a major source of accidental coupling).
     violations.concat(scan_shared_contracts(shared_contracts_root, roots))
     violations.concat(scan_modules(module_root, roots))
+    violations.concat(scan_routing_violations(rulebook, profile_key))
 
     report(profile_key, violations)
     violations.empty? ? 0 : 2
@@ -100,6 +101,86 @@ class CleanPlusGuard
 
       strict_contracts = file_path.to_s.include?(File.join(module_root.to_s, module_name, "contracts") + File::SEPARATOR)
       violations.concat(find_cross_module_violations(file_path, module_name, roots, strict_contracts: strict_contracts))
+    end
+
+    violations
+  end
+
+  def scan_routing_violations(rulebook, profile_key)
+    log("[CleanPlusGuard::scan_routing_violations]")
+    violations = []
+    violations.concat(scan_forbidden_route_definitions(rulebook, profile_key))
+    violations.concat(scan_route_autodiscovery(rulebook, profile_key))
+    violations
+  end
+
+  def scan_forbidden_route_definitions(rulebook, profile_key)
+    log("[CleanPlusGuard::scan_forbidden_route_definitions]")
+    routing = rulebook["routing"]
+    return [] unless routing.is_a?(Hash)
+
+    locations = routing["locations"]
+    return [] unless locations.is_a?(Hash)
+
+    location = locations[profile_key]
+    return [] unless location.is_a?(Hash)
+
+    globs = location["forbidden_route_definition_glob"]
+    return [] unless globs.is_a?(Array) && !globs.empty?
+
+    route_definition_re = /\bRoute::(get|post|put|patch|delete|options|any|match|resource|apiResource|view)\b/
+    violations = []
+
+    globs.each do |glob|
+      Dir.glob(@workspace_root.join(glob).to_s).each do |path|
+        next unless File.file?(path)
+        next unless File.extname(path).downcase == ".php"
+
+        File.read(path).each_line.with_index(1) do |line, line_no|
+          next unless (m = line.match(route_definition_re))
+
+          violations << violation(
+            path,
+            { line: line_no, target: m[0] },
+            "Forbidden route definition in framework-level routes file. Move routes into a module (delivery/http/routes) and mount them from the composition root (explicit list)."
+          )
+        end
+      end
+    end
+
+    violations
+  end
+
+  def scan_route_autodiscovery(rulebook, profile_key)
+    log("[CleanPlusGuard::scan_route_autodiscovery]")
+    routing = rulebook["routing"]
+    return [] unless routing.is_a?(Hash)
+
+    locations = routing["locations"]
+    return [] unless locations.is_a?(Hash)
+
+    location = locations[profile_key]
+    return [] unless location.is_a?(Hash)
+
+    registration_location = location["registration_location"]
+    return [] unless registration_location.is_a?(String)
+    return [] unless registration_location.end_with?(".php")
+
+    registration_file = @workspace_root.join(registration_location)
+    return [] unless registration_file.exist?
+
+    auto_discovery_re =
+      /\b(glob\s*\(|RecursiveDirectoryIterator|RecursiveIteratorIterator|FilesystemIterator|Finder\b|File::allFiles|File::files|File::glob)\b/
+
+    violations = []
+    File.read(registration_file).each_line.with_index(1) do |line, line_no|
+      next unless (m = line.match(auto_discovery_re))
+
+      violations << violation(
+        registration_file.to_s,
+        { line: line_no, target: m[0] },
+        "Forbidden route auto-discovery. Clean Plus requires an explicit list of module route files in the composition root."
+      )
     end
 
     violations
